@@ -258,7 +258,17 @@ function getStartMinutes() {
 
     if (minutes !== null) {
 
-      return minutes;
+      const now =
+        getNowMinutes();
+
+      if (minutes >= now) {
+
+        return minutes;
+      }
+
+      saveStartMode("now");
+
+      return now;
     }
   }
 
@@ -411,7 +421,30 @@ async function askCustomTime() {
 
   const minutes =
     timeToMinutes(value);
+  
+  const now =
+  getNowMinutes();
 
+  if (
+    minutes !== null &&
+    minutes < now
+  ) {
+
+    const error =
+      new Alert();
+
+    error.title =
+      "Past time";
+
+    error.message =
+      "Please choose a start time from now onwards.";
+
+    error.addAction("OK");
+
+    await error.presentAlert();
+
+    return await askCustomTime();
+  }
 
   if (minutes === null) {
 
