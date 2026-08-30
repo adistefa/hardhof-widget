@@ -19,6 +19,149 @@
 //   • Estimated round finish
 // ============================================================
 
+// ============================================================
+// AUTO UPDATE
+// ============================================================
+
+const UPDATE = {
+  url: "https://raw.githubusercontent.com/adistefa/hardhof-widget/main/HardhofWidget.js",
+  checkKey: "hardhof-discgolf-last-update-check",
+  intervalHours: 6
+};
+
+function currentScriptLocation() {
+  const fileName = `${Script.name()}.js`;
+
+  const iCloud = FileManager.iCloud();
+  const iCloudPath = iCloud.joinPath(
+    iCloud.documentsDirectory(),
+    fileName
+  );
+
+  if (iCloud.fileExists(iCloudPath)) {
+    return {
+      fm: iCloud,
+      path: iCloudPath
+    };
+  }
+
+  const local = FileManager.local();
+  const localPath = local.joinPath(
+    local.documentsDirectory(),
+    fileName
+  );
+
+  if (local.fileExists(localPath)) {
+    return {
+      fm: local,
+      path: localPath
+    };
+  }
+
+  return null;
+}
+
+
+async function maybeAutoUpdate() {
+
+  const now = Date.now();
+
+  // Do not check GitHub every widget refresh.
+  if (Keychain.contains(UPDATE.checkKey)) {
+
+    const lastCheck = Number(
+      Keychain.get(UPDATE.checkKey)
+    );
+
+    const interval =
+      UPDATE.intervalHours *
+      60 *
+      60 *
+      1000;
+
+    if (
+      Number.isFinite(lastCheck) &&
+      now - lastCheck < interval
+    ) {
+      return false;
+    }
+  }
+
+  // Store check time immediately so a failed network request
+  // does not cause repeated requests on every widget refresh.
+  Keychain.set(
+    UPDATE.checkKey,
+    String(now)
+  );
+
+  try {
+
+    const location =
+      currentScriptLocation();
+
+    if (!location) {
+      console.log(
+        "Auto update: current script file not found."
+      );
+      return false;
+    }
+
+    const request =
+      new Request(UPDATE.url);
+
+    request.timeoutInterval = 10;
+
+    const remoteCode =
+      await request.loadString();
+
+    // Basic protection against writing an error page
+    // or incomplete response over the working widget.
+    if (
+      !remoteCode ||
+      remoteCode.length < 5000 ||
+      !remoteCode.includes(
+        "HARDHOF DISC GOLF"
+      )
+    ) {
+      console.log(
+        "Auto update: downloaded file is invalid."
+      );
+      return false;
+    }
+
+    const localCode =
+      location.fm.readString(
+        location.path
+      );
+
+    if (remoteCode === localCode) {
+      console.log(
+        "Auto update: already current."
+      );
+      return false;
+    }
+
+    location.fm.writeString(
+      location.path,
+      remoteCode
+    );
+
+    console.log(
+      "Auto update: new version installed."
+    );
+
+    return true;
+
+  } catch (error) {
+
+    console.log(
+      `Auto update failed: ${error}`
+    );
+
+    // Never break the widget because an update failed.
+    return false;
+  }
+}
 
 // ------------------------------------------------------------
 // CONFIG
@@ -1814,6 +1957,9 @@ function errorWidget(
 // MAIN
 // ============================================================
 
+// Silently install the newest GitHub version when available.
+// The newly installed code is used on the next widget run.
+await maybeAutoUpdate();    
 
 // Widget tapped
 if (
