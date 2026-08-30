@@ -117,6 +117,8 @@ const COLORS = {
   warning: new Color("#F2C14E"),
   blocked: new Color("#FF5D5D"),
 
+  glow: new Color("#DFFFE2"),
+
   primary: Color.white(),
   secondary: new Color("#A0A2A8"),
   muted: new Color("#696B72")
@@ -1645,7 +1647,7 @@ function makeWidget(
       glowRow,
       "◉",
       11,
-      COLORS.warning
+      COLORS.glow
     );
 
 
@@ -1656,7 +1658,7 @@ function makeWidget(
       glowRow,
       `GLOW FROM T${glow.glowFromHole}`,
       11,
-      COLORS.warning,
+      COLORS.glow,
       "bold"
     );
 
