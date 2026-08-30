@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+
+  <meta name="theme-color" content="#111111">
+
+  <title>Hardhof Disc Golf</title>
+
+  <link rel="manifest" href="./manifest.json">
+  <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+
+  <main class="app">
+
+    <header class="header">
+      <div>
+        <div class="eyebrow">DISC GOLF · ZÜRICH</div>
+        <h1>HARDHOF</h1>
+      </div>
+
+      <div id="statusBadge" class="status unknown">
+        CHECKING
+      </div>
+    </header>
+
+
+    <section class="card start-card">
+
+      <div class="section-label">
+        PLANNED START
+      </div>
+
+      <div class="start-time" id="startTime">
+        --:--
+      </div>
+
+      <div class="start-buttons">
+
+        <button data-offset="0">
+          NOW
+        </button>
+
+        <button data-offset="30">
+          +30 MIN
+        </button>
+
+        <button data-offset="60">
+          +60 MIN
+        </button>
+
+      </div>
+
+      <label class="custom-start">
+        <span>CUSTOM</span>
+
+        <input
+          type="time"
+          id="customTime"
+        >
+      </label>
+
+    </section>
+
+
+    <section class="card">
+
+      <div class="section-label">
+        DAYLIGHT
+      </div>
+
+      <div class="daylight-main">
+
+        <div>
+          <div
+            id="lightStatus"
+            class="light-status"
+          >
+            CALCULATING
+          </div>
+
+          <div
+            id="finishTime"
+            class="secondary"
+          >
+            Finish —
+          </div>
+        </div>
+
+        <div class="sun-times">
+
+          <div>
+            <span>Sunset</span>
+            <strong id="sunset">—</strong>
+          </div>
+
+          <div>
+            <span>Twilight</span>
+            <strong id="twilight">—</strong>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <section class="card">
+
+      <div class="section-heading">
+
+        <div>
+          <div class="section-label">
+            FIELD CONFLICTS
+          </div>
+
+          <div
+            class="secondary"
+            id="fieldInfo"
+          >
+            Checking schedule…
+          </div>
+        </div>
+
+        <button
+          id="refreshButton"
+          class="refresh"
+          aria-label="Refresh"
+        >
+          ↻
+        </button>
+
+      </div>
+
+
+      <div
+        id="teeList"
+        class="tee-list"
+      >
+      </div>
+
+    </section>
+
+
+    <footer>
+      Hardhof Disc Golf · unofficial community tool
+    </footer>
+
+  </main>
+
+
+  <script src="./app.js"></script>
+
+</body>
+</html>
