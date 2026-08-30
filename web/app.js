@@ -1046,6 +1046,666 @@ function overallStatus(
   return "playable";
 }
 
+// ============================================================
+// BEST STARTING TIME
+// ============================================================
+
+function arrivalWindowForStart(
+  candidateStart,
+  tee
+) {
+
+  const holesBefore =
+    tee - 1;
+
+  return {
+
+    start:
+      addMinutes(
+        candidateStart,
+        holesBefore *
+        CONFIG.minutesPerHoleMin
+      ),
+
+    end:
+      addMinutes(
+        candidateStart,
+        holesBefore *
+        CONFIG.minutesPerHoleMax
+      )
+  };
+}
+
+
+function analyseRuleForStart(
+  rule,
+  candidateStart
+) {
+
+  const arrival =
+    arrivalWindowForStart(
+      candidateStart,
+      rule.tee
+    );
+
+
+  if (
+    !scheduleLoaded ||
+    scheduleRows === null
+  ) {
+
+    return {
+      ...rule,
+      arrival,
+      status: "unknown"
+    };
+  }
+
+
+  const relevantRows =
+    scheduleRows.filter(
+      row =>
+        row.includes(
+          rule.field
+        )
+    );
+
+
+  const arrivalStart =
+    minutesSinceMidnight(
+      arrival.start
+    );
+
+
+  const arrivalEnd =
+    minutesSinceMidnight(
+      arrival.end
+    );
+
+
+  for (
+    const row
+    of relevantRows
+  ) {
+
+    const range =
+      parseTimeRange(
+        row
+      );
+
+
+    if (!range)
+      continue;
+
+
+    if (
+      rangesOverlap(
+        arrivalStart,
+        arrivalEnd + 1,
+        range.start,
+        range.end
+      )
+    ) {
+
+      return {
+
+        ...rule,
+
+        arrival,
+
+        status:
+          rule.level
+      };
+    }
+  }
+
+
+  return {
+
+    ...rule,
+
+    arrival,
+
+    status:
+      "clear"
+  };
+}
+
+
+function analyseCourseForStart(
+  candidateStart
+) {
+
+  const rules =
+    CONFIG.rules.map(
+      rule =>
+        analyseRuleForStart(
+          rule,
+          candidateStart
+        )
+    );
+
+
+  return {
+
+    rules,
+
+    status:
+      overallStatus(
+        rules
+      )
+  };
+}
+
+
+function analyseGlowForStart(
+  candidateStart
+) {
+
+  const originalStart =
+    startTime;
+
+
+  startTime =
+    candidateStart;
+
+
+  const result =
+    analyseGlow();
+
+
+  startTime =
+    originalStart;
+
+
+  return result;
+}
+
+
+// ------------------------------------------------------------
+// SCORE ONE POSSIBLE START
+// ------------------------------------------------------------
+
+function evaluateCandidateStart(
+  candidateStart
+) {
+
+  const course =
+    analyseCourseForStart(
+      candidateStart
+    );
+
+
+  if (
+    course.status ===
+      "restricted"
+  ) {
+
+    return {
+      score: 99,
+      course,
+      glow: null
+    };
+  }
+
+
+  if (
+    course.status ===
+      "unknown"
+  ) {
+
+    return {
+      score: 99,
+      course,
+      glow: null
+    };
+  }
+
+
+  const glow =
+    analyseGlowForStart(
+      candidateStart
+    );
+
+
+  // Course conflicts matter more than darkness.
+  //
+  // 0 = field clear + daylight
+  // 1 = field clear + glow
+  // 2 = caution + daylight
+  // 3 = caution + glow
+
+  let score;
+
+
+  if (
+    course.status ===
+      "playable"
+  ) {
+
+    score =
+      glow.glowNeeded
+        ? 1
+        : 0;
+
+  } else {
+
+    score =
+      glow.glowNeeded
+        ? 3
+        : 2;
+  }
+
+
+  return {
+    score,
+    course,
+    glow
+  };
+}
+
+
+// ------------------------------------------------------------
+// SEARCH TODAY
+// ------------------------------------------------------------
+
+function findBestStartingWindow() {
+
+  if (
+    !scheduleLoaded ||
+    scheduleRows === null
+  ) {
+
+    return null;
+  }
+
+
+  const now =
+    nowWithoutSeconds();
+
+
+  // Round to next 5-minute point.
+  const rounded =
+    new Date(now);
+
+
+  const remainder =
+    rounded.getMinutes() % 5;
+
+
+  if (
+    remainder !== 0
+  ) {
+
+    rounded.setMinutes(
+      rounded.getMinutes() +
+      (5 - remainder)
+    );
+  }
+
+
+  rounded.setSeconds(
+    0,
+    0
+  );
+
+
+  const endOfDay =
+    new Date(now);
+
+
+  endOfDay.setHours(
+    23,
+    55,
+    0,
+    0
+  );
+
+
+  const candidates =
+    [];
+
+
+  for (
+    let candidate =
+      new Date(rounded);
+
+    candidate <=
+      endOfDay;
+
+    candidate =
+      addMinutes(
+        candidate,
+        5
+      )
+  ) {
+
+    const evaluation =
+      evaluateCandidateStart(
+        candidate
+      );
+
+
+    if (
+      evaluation.score <
+      99
+    ) {
+
+      candidates.push({
+
+        time:
+          new Date(
+            candidate
+          ),
+
+        ...evaluation
+      });
+    }
+  }
+
+
+  if (
+    candidates.length === 0
+  ) {
+
+    return {
+      available: false
+    };
+  }
+
+
+  const bestScore =
+    Math.min(
+      ...candidates.map(
+        candidate =>
+          candidate.score
+      )
+    );
+
+
+  const best =
+    candidates.filter(
+      candidate =>
+        candidate.score ===
+        bestScore
+    );
+
+
+  // ----------------------------------------------------------
+  // BUILD CONTINUOUS WINDOWS
+  // ----------------------------------------------------------
+
+  const windows =
+    [];
+
+
+  let current =
+    null;
+
+
+  for (
+    const candidate
+    of best
+  ) {
+
+    if (!current) {
+
+      current = {
+
+        from:
+          candidate.time,
+
+        to:
+          candidate.time,
+
+        score:
+          bestScore
+      };
+
+
+      continue;
+    }
+
+
+    const difference =
+      (
+        candidate.time -
+        current.to
+      ) /
+      60000;
+
+
+    if (
+      difference === 5
+    ) {
+
+      current.to =
+        candidate.time;
+
+    } else {
+
+      windows.push(
+        current
+      );
+
+
+      current = {
+
+        from:
+          candidate.time,
+
+        to:
+          candidate.time,
+
+        score:
+          bestScore
+      };
+    }
+  }
+
+
+  if (current) {
+
+    windows.push(
+      current
+    );
+  }
+
+
+  // Prefer a window containing NOW.
+  let selected =
+    windows.find(
+      window =>
+        now >= window.from &&
+        now <=
+          addMinutes(
+            window.to,
+            5
+          )
+    );
+
+
+  // Otherwise choose the earliest
+  // highest-quality window.
+  if (!selected) {
+
+    selected =
+      windows[0];
+  }
+
+
+  return {
+
+    available: true,
+
+    from:
+      selected.from,
+
+    to:
+      selected.to,
+
+    score:
+      selected.score,
+
+    glow:
+      selected.score === 1 ||
+      selected.score === 3,
+
+    caution:
+      selected.score >= 2
+  };
+}
+
+
+// ------------------------------------------------------------
+// DISPLAY BEST START
+// ------------------------------------------------------------
+
+function renderBestStartingTime() {
+
+  const timeElement =
+    document.getElementById(
+      "bestStartTime"
+    );
+
+
+  const infoElement =
+    document.getElementById(
+      "bestStartInfo"
+    );
+
+
+  const button =
+    document.getElementById(
+      "useBestStart"
+    );
+
+
+  const best =
+    findBestStartingWindow();
+
+
+  if (!best) {
+
+    timeElement.textContent =
+      "CHECKING";
+
+    infoElement.textContent =
+      "Waiting for field schedule…";
+
+    button.hidden =
+      true;
+
+    return;
+  }
+
+
+  if (
+    !best.available
+  ) {
+
+    timeElement.textContent =
+      "NO CLEAR WINDOW";
+
+    infoElement.textContent =
+      "No suitable start found today.";
+
+    button.hidden =
+      true;
+
+    return;
+  }
+
+
+  const now =
+    nowWithoutSeconds();
+
+
+  const containsNow =
+    now >= best.from &&
+    now <=
+      addMinutes(
+        best.to,
+        5
+      );
+
+
+  const fromLabel =
+    containsNow
+      ? "NOW"
+      : formatTime(
+          best.from
+        );
+
+
+  // +5 because a candidate at e.g. 17:10 means
+  // approximately until 17:15 remains within window.
+  const windowEnd =
+    addMinutes(
+      best.to,
+      5
+    );
+
+
+  if (
+    windowEnd >
+    best.from
+  ) {
+
+    timeElement.textContent =
+      `${fromLabel}–${formatTime(
+        windowEnd
+      )}`;
+
+  } else {
+
+    timeElement.textContent =
+      fromLabel;
+  }
+
+
+  if (
+    best.caution
+  ) {
+
+    infoElement.textContent =
+      best.glow
+        ? "Playable with caution · glow round"
+        : "Playable with caution";
+
+  } else {
+
+    infoElement.textContent =
+      best.glow
+        ? "Field clear · glow round"
+        : "Field clear · daylight";
+  }
+
+
+  button.hidden =
+    containsNow;
+
+
+  button.onclick =
+    () => {
+
+      startTime =
+        new Date(
+          best.from
+        );
+
+
+      document.getElementById(
+        "customTime"
+      ).value =
+        formatTime(
+          best.from
+        );
+
+
+      render();
+    };
+}
 
 // ============================================================
 // RENDER
@@ -1254,6 +1914,8 @@ function render() {
         "restricted"
       ? "RESTRICTED"
       : "SCHEDULE UNKNOWN";
+
+    renderBestStartingTime();
 }
 
 

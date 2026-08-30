@@ -303,3 +303,34 @@ footer {
   color: var(--glow);
   text-shadow: 0 0 10px rgba(223, 255, 226, 0.22);
 }
+
+.best-start-card {
+  border-color: rgba(141, 223, 120, 0.18);
+}
+
+.best-start-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.best-start-time {
+  font-size: 30px;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  color: var(--green);
+}
+
+.best-start-button {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  color: var(--green);
+}
+
+.glow-text {
+  color: var(--glow);
+  text-shadow:
+    0 0 10px rgba(223, 255, 226, 0.22);
+}
