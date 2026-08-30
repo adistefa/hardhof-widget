@@ -1383,7 +1383,7 @@ function makeWidget(
 
   addText(
     title,
-    "HARDHOF TEST",
+    "HARDHOF",
     10,
     COLORS.secondary,
     "bold"
