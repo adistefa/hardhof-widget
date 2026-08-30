@@ -1,5 +1,5 @@
 // ============================================================
-// HARDHOF DISC GOLF – COURSE & DAYLIGHT CHECK
+// HARDHOF DISC GOLF – COURSE & GLOW CHECK
 // Scriptable Widget
 //
 // TAP:
@@ -15,9 +15,12 @@
 //   • Football field conflicts
 //   • Estimated arrival at affected tees
 //   • Sunset
-//   • Civil twilight
-//   • Estimated round finish
+//   • Glow recommendation
+//
+// Night play is possible.
+// Sunset is NOT a restriction.
 // ============================================================
+
 
 // ------------------------------------------------------------
 // CONFIG
@@ -134,7 +137,9 @@ function normalize(text) {
 
 
 function pad(value) {
-  return String(value).padStart(2, "0");
+
+  return String(value)
+    .padStart(2, "0");
 }
 
 
@@ -163,11 +168,13 @@ function timeToMinutes(value) {
   if (!match)
     return null;
 
+
   const hours =
     Number(match[1]);
 
   const minutes =
     Number(match[2]);
+
 
   if (
     hours < 0 ||
@@ -175,8 +182,10 @@ function timeToMinutes(value) {
     minutes < 0 ||
     minutes > 59
   ) {
+
     return null;
   }
+
 
   return (
     hours * 60 +
@@ -226,8 +235,10 @@ function loadStartMode() {
       CONFIG.storageKey
     )
   ) {
+
     return "now";
   }
+
 
   return Keychain.get(
     CONFIG.storageKey
@@ -239,6 +250,7 @@ function getStartMinutes() {
 
   const mode =
     loadStartMode();
+
 
   if (mode === "now") {
 
@@ -253,18 +265,28 @@ function getStartMinutes() {
     const value =
       mode.substring(5);
 
+
     const minutes =
       timeToMinutes(value);
 
-    if (minutes !== null) {
+
+    if (
+      minutes !== null
+    ) {
 
       const now =
         getNowMinutes();
 
-      if (minutes >= now) {
+
+      // Stored custom times in the past
+      // automatically fall back to NOW.
+      if (
+        minutes >= now
+      ) {
 
         return minutes;
       }
+
 
       saveStartMode("now");
 
@@ -409,8 +431,12 @@ async function askCustomTime() {
     await alert.presentAlert();
 
 
-  if (result !== 0)
+  if (
+    result !== 0
+  ) {
+
     return false;
+  }
 
 
   const value =
@@ -421,35 +447,15 @@ async function askCustomTime() {
 
   const minutes =
     timeToMinutes(value);
-  
-  const now =
-  getNowMinutes();
+
 
   if (
-    minutes !== null &&
-    minutes < now
+    minutes === null
   ) {
 
     const error =
       new Alert();
 
-    error.title =
-      "Past time";
-
-    error.message =
-      "Please choose a start time from now onwards.";
-
-    error.addAction("OK");
-
-    await error.presentAlert();
-
-    return await askCustomTime();
-  }
-
-  if (minutes === null) {
-
-    const error =
-      new Alert();
 
     error.title =
       "Invalid time";
@@ -457,9 +463,47 @@ async function askCustomTime() {
     error.message =
       "Please enter e.g. 14:30.";
 
-    error.addAction("OK");
+    error.addAction(
+      "OK"
+    );
+
 
     await error.presentAlert();
+
+
+    return await askCustomTime();
+  }
+
+
+  // ----------------------------------------------------------
+  // NO START TIMES IN THE PAST
+  // ----------------------------------------------------------
+
+  const now =
+    getNowMinutes();
+
+
+  if (
+    minutes < now
+  ) {
+
+    const error =
+      new Alert();
+
+
+    error.title =
+      "Past time";
+
+    error.message =
+      "Please choose a start time from now onwards.";
+
+    error.addAction(
+      "OK"
+    );
+
+
+    await error.presentAlert();
+
 
     return await askCustomTime();
   }
@@ -476,17 +520,8 @@ async function askCustomTime() {
 
 
 // ============================================================
-// SUN / DAYLIGHT
+// SUNSET
 // ============================================================
-//
-// Local astronomical calculation.
-// No additional web service required.
-//
-// Returns:
-// sunset
-// civilTwilightEnd
-//
-// ------------------------------------------------------------
 
 function toRadians(degrees) {
 
@@ -506,8 +541,14 @@ function normalizeDegrees(value) {
 
   value %= 360;
 
-  if (value < 0)
+
+  if (
+    value < 0
+  ) {
+
     value += 360;
+  }
+
 
   return value;
 }
@@ -522,8 +563,10 @@ function dayOfYear(date) {
       0
     );
 
+
   const diff =
     date - start;
+
 
   return Math.floor(
     diff / 86400000
@@ -532,7 +575,7 @@ function dayOfYear(date) {
 
 
 // ------------------------------------------------------------
-// NOAA-style sunset calculation
+// NOAA-STYLE SUNSET CALCULATION
 // ------------------------------------------------------------
 
 function calculateSunTime(
@@ -546,7 +589,6 @@ function calculateSunTime(
     dayOfYear(date);
 
 
-  // Approximate time
   const lngHour =
     longitude / 15;
 
@@ -559,13 +601,11 @@ function calculateSunTime(
     );
 
 
-  // Mean anomaly
   const M =
     (0.9856 * t) -
     3.289;
 
 
-  // True longitude
   let L =
     M +
     (
@@ -587,7 +627,6 @@ function calculateSunTime(
     normalizeDegrees(L);
 
 
-  // Right ascension
   let RA =
     toDegrees(
       Math.atan(
@@ -604,11 +643,15 @@ function calculateSunTime(
 
 
   const Lquadrant =
-    Math.floor(L / 90) * 90;
+    Math.floor(
+      L / 90
+    ) * 90;
 
 
   const RAquadrant =
-    Math.floor(RA / 90) * 90;
+    Math.floor(
+      RA / 90
+    ) * 90;
 
 
   RA =
@@ -623,7 +666,6 @@ function calculateSunTime(
     RA / 15;
 
 
-  // Declination
   const sinDec =
     0.39782 *
     Math.sin(
@@ -639,23 +681,18 @@ function calculateSunTime(
     );
 
 
-  // Local hour angle
   const cosH =
-
     (
       Math.cos(
         toRadians(zenith)
       ) -
-
       (
         sinDec *
         Math.sin(
           toRadians(latitude)
         )
       )
-
     ) /
-
     (
       cosDec *
       Math.cos(
@@ -664,7 +701,6 @@ function calculateSunTime(
     );
 
 
-  // No sunset
   if (
     cosH > 1 ||
     cosH < -1
@@ -674,7 +710,6 @@ function calculateSunTime(
   }
 
 
-  // Sunset = arccos
   let H =
     toDegrees(
       Math.acos(cosH)
@@ -685,7 +720,6 @@ function calculateSunTime(
     H / 15;
 
 
-  // Local mean time
   const T =
     H +
     RA -
@@ -695,7 +729,6 @@ function calculateSunTime(
     6.622;
 
 
-  // UTC
   let UT =
     T -
     lngHour;
@@ -703,11 +736,15 @@ function calculateSunTime(
 
   UT %= 24;
 
-  if (UT < 0)
+
+  if (
+    UT < 0
+  ) {
+
     UT += 24;
+  }
 
 
-  // Build UTC date
   const utcHours =
     Math.floor(UT);
 
@@ -731,20 +768,16 @@ function calculateSunTime(
     );
 
 
-  const result =
-    new Date(
-      Date.UTC(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-        utcHours,
-        utcMinutes,
-        utcSeconds
-      )
-    );
-
-
-  return result;
+  return new Date(
+    Date.UTC(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      utcHours,
+      utcMinutes,
+      utcSeconds
+    )
+  );
 }
 
 
@@ -758,8 +791,6 @@ function getSunData() {
     new Date();
 
 
-  // Official sunset:
-  // sun centre approx 0.833° below horizon
   const sunset =
     calculateSunTime(
       today,
@@ -769,34 +800,37 @@ function getSunData() {
     );
 
 
-  // Civil twilight:
-  // sun 6° below horizon
-  const civilTwilightEnd =
-    calculateSunTime(
-      today,
-      CONFIG.latitude,
-      CONFIG.longitude,
-      96
-    );
-
-
   return {
-    sunset,
-    civilTwilightEnd
+    sunset
   };
 }
 
 
-// ------------------------------------------------------------
-// DAYLIGHT STATUS
-// ------------------------------------------------------------
+// ============================================================
+// GLOW ANALYSIS
+// ============================================================
+//
+// Glow is not a restriction.
+//
+// If the whole estimated round is completed before sunset:
+//   -> nothing is displayed.
+//
+// If sunset occurs during the estimated round:
+//   -> LIGHT TIGHT
+//   -> GLOW FROM T...
+//
+// If the round starts after sunset:
+//   -> GLOW FROM T1
+//
+// The conservative 9 min / hole pace is used to decide
+// when glow may become necessary.
+// ============================================================
 
-function analyseDaylight(
+function analyseGlow(
   startMinutes,
   sunData
 ) {
 
-  // 18 holes × 6–9 minutes
   const fastFinish =
     startMinutes +
     (
@@ -814,22 +848,21 @@ function analyseDaylight(
 
 
   if (
-    !sunData.sunset ||
-    !sunData.civilTwilightEnd
+    !sunData.sunset
   ) {
 
     return {
 
-      level: "warning",
+      glowNeeded: false,
 
-      label:
-        "LIGHT UNKNOWN",
+      lightTight: false,
 
-      fastFinish,
-      slowFinish,
+      glowFromHole: null,
 
       sunsetMinutes: null,
-      twilightMinutes: null
+
+      fastFinish,
+      slowFinish
     };
   }
 
@@ -840,90 +873,120 @@ function analyseDaylight(
     );
 
 
-  const twilightMinutes =
-    dateToMinutes(
-      sunData.civilTwilightEnd
-    );
+  // ----------------------------------------------------------
+  // WHOLE ROUND BEFORE SUNSET
+  // ----------------------------------------------------------
 
-
-  // Even fastest round ends after civil twilight
   if (
-    fastFinish >
-    twilightMinutes
-  ) {
-
-    return {
-
-      level: "blocked",
-
-      label:
-        "TOO LATE",
-
-      fastFinish,
-      slowFinish,
-
-      sunsetMinutes,
-      twilightMinutes
-    };
-  }
-
-
-  // Slow round ends after civil twilight
-  if (
-    slowFinish >
-    twilightMinutes
-  ) {
-
-    return {
-
-      level: "warning",
-
-      label:
-        "DAYLIGHT RISK",
-
-      fastFinish,
-      slowFinish,
-
-      sunsetMinutes,
-      twilightMinutes
-    };
-  }
-
-
-  // Slow round ends after sunset
-  if (
-    slowFinish >
+    slowFinish <=
     sunsetMinutes
   ) {
 
     return {
 
-      level: "warning",
+      glowNeeded: false,
 
-      label:
-        "LIGHT TIGHT",
+      lightTight: false,
 
-      fastFinish,
-      slowFinish,
+      glowFromHole: null,
 
       sunsetMinutes,
-      twilightMinutes
+
+      fastFinish,
+      slowFinish
     };
+  }
+
+
+  // ----------------------------------------------------------
+  // START ALREADY AFTER SUNSET
+  // ----------------------------------------------------------
+
+  if (
+    startMinutes >=
+    sunsetMinutes
+  ) {
+
+    return {
+
+      glowNeeded: true,
+
+      lightTight: false,
+
+      glowFromHole: 1,
+
+      sunsetMinutes,
+
+      fastFinish,
+      slowFinish
+    };
+  }
+
+
+  // ----------------------------------------------------------
+  // SUNSET DURING ROUND
+  // ----------------------------------------------------------
+
+  let glowFromHole =
+    null;
+
+
+  for (
+    let hole = 1;
+    hole <= CONFIG.holes;
+    hole++
+  ) {
+
+    const holeOffset =
+      hole - 1;
+
+
+    // Conservative estimate:
+    // latest expected arrival at this tee.
+    const latestTeeArrival =
+      startMinutes +
+      (
+        holeOffset *
+        CONFIG.minutesPerHoleMax
+      );
+
+
+    if (
+      latestTeeArrival >=
+      sunsetMinutes
+    ) {
+
+      glowFromHole =
+        hole;
+
+      break;
+    }
+  }
+
+
+  // Sunset may occur after reaching T18
+  // but before completing hole 18.
+  if (
+    glowFromHole === null
+  ) {
+
+    glowFromHole =
+      CONFIG.holes;
   }
 
 
   return {
 
-    level: "free",
+    glowNeeded: true,
 
-    label:
-      "LIGHT OK",
+    lightTight: true,
 
-    fastFinish,
-    slowFinish,
+    glowFromHole,
 
     sunsetMinutes,
-    twilightMinutes
+
+    fastFinish,
+    slowFinish
   };
 }
 
@@ -940,8 +1003,12 @@ function findTimeRange(text) {
     );
 
 
-  if (!match)
+  if (
+    !match
+  ) {
+
     return null;
+  }
 
 
   const fromMinutes =
@@ -967,8 +1034,11 @@ function findTimeRange(text) {
 
   return {
 
-    from: match[1],
-    to: match[2],
+    from:
+      match[1],
+
+    to:
+      match[2],
 
     fromMinutes,
     toMinutes
@@ -993,15 +1063,19 @@ function overlaps(
   ) {
 
     return (
-      arrivalFrom >= bookingFrom &&
-      arrivalFrom < bookingTo
+      arrivalFrom >=
+        bookingFrom &&
+      arrivalFrom <
+        bookingTo
     );
   }
 
 
   return (
-    arrivalFrom < bookingTo &&
-    arrivalTo > bookingFrom
+    arrivalFrom <
+      bookingTo &&
+    arrivalTo >
+      bookingFrom
   );
 }
 
@@ -1117,8 +1191,11 @@ function arrivalWindow(
 
   return {
 
-    fromMinutes: min,
-    toMinutes: max,
+    fromMinutes:
+      min,
+
+    toMinutes:
+      max,
 
     from:
       minutesToTime(min),
@@ -1167,8 +1244,12 @@ function analyseRule(
       findTimeRange(row);
 
 
-    if (!booking)
+    if (
+      !booking
+    ) {
+
       continue;
+    }
 
 
     if (
@@ -1181,8 +1262,13 @@ function analyseRule(
     ) {
 
       conflicts.push({
-        from: booking.from,
-        to: booking.to,
+
+        from:
+          booking.from,
+
+        to:
+          booking.to,
+
         row
       });
     }
@@ -1231,7 +1317,8 @@ function overallStatus(results) {
 
   const affected =
     results.filter(
-      x => x.affected
+      x =>
+        x.affected
     );
 
 
@@ -1319,7 +1406,8 @@ function addText(
     color;
 
 
-  text.lineLimit = 1;
+  text.lineLimit =
+    1;
 
 
   return text;
@@ -1370,7 +1458,7 @@ function getTapURL() {
 function makeWidget(
   results,
   status,
-  daylight,
+  glow,
   startMinutes
 ) {
 
@@ -1477,115 +1565,122 @@ function makeWidget(
   );
 
 
-  widget.addSpacer(7);
-
-
   // ----------------------------------------------------------
-  // DAYLIGHT
+  // GLOW
   // ----------------------------------------------------------
 
-  const lightRow =
-    widget.addStack();
-
-
-  lightRow.layoutHorizontally();
-
-  lightRow.centerAlignContent();
-
-
-  addText(
-    lightRow,
-    "☀",
-    11,
-    COLORS[
-      daylight.level
-    ]
-  );
-
-
-  lightRow.addSpacer(5);
-
-
-  addText(
-    lightRow,
-    daylight.label,
-    10,
-    COLORS[
-      daylight.level
-    ],
-    "bold"
-  );
-
-
-  lightRow.addSpacer();
-
-
   if (
-    daylight.sunsetMinutes !==
-    null
+    glow.glowNeeded
   ) {
 
+    widget.addSpacer(7);
+
+
+    if (
+      glow.lightTight
+    ) {
+
+      const lightRow =
+        widget.addStack();
+
+
+      lightRow.layoutHorizontally();
+
+      lightRow.centerAlignContent();
+
+
+      addText(
+        lightRow,
+        "☀",
+        11,
+        COLORS.warning
+      );
+
+
+      lightRow.addSpacer(5);
+
+
+      addText(
+        lightRow,
+        "LIGHT TIGHT",
+        10,
+        COLORS.warning,
+        "bold"
+      );
+
+
+      lightRow.addSpacer();
+
+
+      if (
+        glow.sunsetMinutes !==
+        null
+      ) {
+
+        addText(
+          lightRow,
+          `Sunset ${minutesToTime(
+            glow.sunsetMinutes
+          )}`,
+          9,
+          COLORS.secondary
+        );
+      }
+
+
+      widget.addSpacer(3);
+    }
+
+
+    const glowRow =
+      widget.addStack();
+
+
+    glowRow.layoutHorizontally();
+
+    glowRow.centerAlignContent();
+
+
     addText(
-      lightRow,
-      `Sunset ${minutesToTime(
-        daylight.sunsetMinutes
-      )}`,
-      9,
-      COLORS.secondary
+      glowRow,
+      "◉",
+      11,
+      COLORS.warning
     );
-  }
 
 
-  widget.addSpacer(3);
+    glowRow.addSpacer(5);
 
-
-  const finishRow =
-    widget.addStack();
-
-
-  finishRow.layoutHorizontally();
-
-
-  addText(
-    finishRow,
-    "Finish",
-    9,
-    COLORS.secondary
-  );
-
-
-  finishRow.addSpacer(5);
-
-
-  addText(
-    finishRow,
-    `${minutesToTime(
-      daylight.fastFinish
-    )}–${minutesToTime(
-      daylight.slowFinish
-    )}`,
-    9,
-    COLORS.primary,
-    "bold"
-  );
-
-
-  finishRow.addSpacer();
-
-
-  if (
-    daylight.twilightMinutes !==
-    null
-  ) {
 
     addText(
-      finishRow,
-      `Twilight ${minutesToTime(
-        daylight.twilightMinutes
-      )}`,
-      8,
-      COLORS.muted
+      glowRow,
+      `GLOW FROM T${glow.glowFromHole}`,
+      11,
+      COLORS.warning,
+      "bold"
     );
+
+
+    // If the round begins after sunset,
+    // showing sunset is useful context.
+    if (
+      !glow.lightTight &&
+      glow.sunsetMinutes !==
+        null
+    ) {
+
+      glowRow.addSpacer();
+
+
+      addText(
+        glowRow,
+        `Sunset ${minutesToTime(
+          glow.sunsetMinutes
+        )}`,
+        8,
+        COLORS.muted
+      );
+    }
   }
 
 
@@ -1598,7 +1693,8 @@ function makeWidget(
 
   const affected =
     results.filter(
-      x => x.affected
+      x =>
+        x.affected
     );
 
 
@@ -1656,8 +1752,10 @@ function makeWidget(
             "blocked" &&
           b.severity !==
             "blocked"
-        )
+        ) {
+
           return -1;
+        }
 
 
         if (
@@ -1665,8 +1763,10 @@ function makeWidget(
             "blocked" &&
           a.severity !==
             "blocked"
-        )
+        ) {
+
           return 1;
+        }
 
 
         return (
@@ -1857,7 +1957,9 @@ if (
     await chooseStartTime();
 
 
-  if (!changed) {
+  if (
+    !changed
+  ) {
 
     Script.complete();
 
@@ -1897,8 +1999,8 @@ try {
     getSunData();
 
 
-  const daylight =
-    analyseDaylight(
+  const glow =
+    analyseGlow(
       startMinutes,
       sunData
     );
@@ -1912,7 +2014,7 @@ try {
     makeWidget(
       results,
       status,
-      daylight,
+      glow,
       startMinutes
     );
 
@@ -1941,7 +2043,9 @@ try {
 
 } catch (error) {
 
-  console.error(error);
+  console.error(
+    error
+  );
 
 
   const widget =
